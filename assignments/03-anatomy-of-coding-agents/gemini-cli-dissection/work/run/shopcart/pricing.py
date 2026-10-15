@@ -11,6 +11,10 @@ DISCOUNT_CODES = {
 }
 
 
+SHIPPING_FEE = 599
+FREE_SHIPPING_THRESHOLD = 5000
+
+
 def validate_code(code: str) -> None:
     if code not in DISCOUNT_CODES:
         raise ValueError(f"invalid discount code: {code}")
@@ -31,8 +35,24 @@ def apply_tax(amount_cents: int) -> int:
     return round(amount_cents * (1 + TAX_RATE))
 
 
+def calculate_shipping(subtotal_cents: int, discounted_subtotal_cents: int) -> int:
+    """Return shipping fee in cents.
+    - Orders pay a flat $5.99 shipping fee.
+    - Shipping is free when the subtotal after discount, before tax is $50.00 or more.
+    - An empty cart pays no shipping.
+    - Shipping is not taxed.
+    """
+    if subtotal_cents == 0:
+        return 0
+    if discounted_subtotal_cents >= FREE_SHIPPING_THRESHOLD:
+        return 0
+    return SHIPPING_FEE
+
+
 def final_total(subtotal_cents: int, code: str | None = None) -> int:
     """Total the customer pays for a given subtotal and optional discount code."""
     # Discount is applied before tax, per store policy.
-    taxed = apply_tax(subtotal_cents)
-    return apply_discount(taxed, code)
+    discounted = apply_discount(subtotal_cents, code)
+    shipping = calculate_shipping(subtotal_cents, discounted)
+    taxed = apply_tax(discounted)
+    return taxed + shipping
